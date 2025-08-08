@@ -20,7 +20,7 @@ func main() {
 		if err := appinstance.Data.DB.Close(); err != nil {
 			log.Print(
 				map[string]interface{}{
-					"message": "error to close db connection",
+					"message": "error closing db connection",
 					"error":   err,
 				},
 			)
@@ -36,7 +36,7 @@ func main() {
 		if err := appinstance.Data.Server.Shutdown(); err != nil {
 			log.Print(
 				map[string]interface{}{
-					"message": "error to shutdown server",
+					"message": "error shutting down server",
 					"error":   err,
 				},
 			)

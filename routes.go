@@ -18,9 +18,16 @@ func route() *fiber.App {
 	}))
 
 	healthController := makeHealthController()
+	paymentController := makePaymentController(appinstance.Data.Config)
 
 	healthGroup := appinstance.Data.Server.Group("/health")
 	healthGroup.Get("", healthController.Check).Name("health_check")
+
+	paymentGroup := appinstance.Data.Server.Group("/payments")
+	paymentGroup.Post("", paymentController.ProcessPayment).Name("process_payment")
+
+	paymentsSummaryGroup := appinstance.Data.Server.Group("/payments-summary")
+	paymentsSummaryGroup.Get("", paymentController.RetrievePaymentSummary).Name("retrieve_payment_summary")
 
 	return appinstance.Data.Server
 }

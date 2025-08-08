@@ -21,7 +21,7 @@ func (c *Controller) Check(ctx *fiber.Ctx) error {
 	check, err := c.usecase.Execute()
 	if err != nil {
 		return helpers.CreateResponse(ctx, &helpers.ErrorResponse{
-			Message:     "error to check health",
+			Message:     "error checking health",
 			Description: err.Error(),
 			StatusCode:  constants.HTTPStatusInternalServerError,
 		}, constants.HTTPStatusInternalServerError)

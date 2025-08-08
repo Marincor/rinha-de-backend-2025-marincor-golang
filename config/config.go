@@ -8,7 +8,9 @@ import (
 )
 
 type Config struct {
-	ServerPort string `json:"SERVER_PORT"`
+	ServerPort               string `json:"SERVER_PORT"`
+	PaymentProcessorDefault  string `json:"PAYMENT_PROCESSOR_DEFAULT"`
+	PaymentProcessorFallback string `json:"PAYMENT_PROCESSOR_FALLBACK"`
 }
 
 func New() *Config {
@@ -22,11 +24,13 @@ func setup() *Config {
 	}
 
 	config := &Config{
-		ServerPort: os.Getenv("SERVER_PORT"),
+		ServerPort:               os.Getenv("SERVER_PORT"),
+		PaymentProcessorDefault:  os.Getenv("PAYMENT_PROCESSOR_DEFAULT"),
+		PaymentProcessorFallback: os.Getenv("PAYMENT_PROCESSOR_FALLBACK"),
 	}
 
 	if err := validate(config); err != nil {
-		log.Fatalf("error to validate config: %v", err)
+		log.Fatalf("error validating config: %v", err)
 	}
 
 	return config

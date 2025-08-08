@@ -99,3 +99,21 @@ import:
 	go test -race -count=1 ./...
 
 	@printf "\e[34m## All tests passed! ##\e[0m\n"
+
+run-docker:
+	docker-compose up
+
+new-hazelcast:
+	docker run -d \
+	--hostname hazelcast-node \
+	--name hazelcast \
+	-p 5701:5701 \
+	-e HZ_CLUSTERNAME=dev \
+	-e JAVA_OPTS="-Dhazelcast.rest.enabled=true -Dhazelcast.http.health-check.enabled=true" \
+	hazelcast/hazelcast:5.5
+
+start-hazelcast:
+	docker start hazelcast
+
+stop-hazelcast:
+	docker stop hazelcast
