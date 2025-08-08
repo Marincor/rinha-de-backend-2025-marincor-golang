@@ -92,3 +92,10 @@ import:
   else
 	gci write --skip-generated -s standard -s default $(file)
   endif
+
+  test:
+	@printf "\e[34m Running tests... ## \n"
+
+	go test -race -count=1 ./...
+
+	@printf "\e[34m## All tests passed! ##\e[0m\n"
