@@ -36,7 +36,14 @@ func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
 	}
 
 	go func() {
+		init := false
 		for {
+			if init {
+				time.Sleep(time.Duration(throttlingFactor))
+			}
+
+			init = true
+
 			health, err := client.health()
 			if err != nil {
 				go log.Print(
@@ -63,8 +70,6 @@ func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
 			} else {
 				client.failing = false
 			}
-
-			time.Sleep(time.Duration(throttlingFactor))
 		}
 	}()
 
