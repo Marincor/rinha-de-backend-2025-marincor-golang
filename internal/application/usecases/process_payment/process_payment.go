@@ -53,7 +53,7 @@ func (usecase *UseCase) Execute(paymentRequest *dtos.PaymentPayload) (*entities.
 		func() (*entities.PaymentResponse, error) {
 			internalResponse, err := usecase.processPayment(payload)
 			if err != nil {
-				alreadyProcessedCode := "402"
+				alreadyProcessedCode := "422"
 				if errors.Is(err, constants.ErrInvalidStatusCode) && strings.Contains(err.Error(), alreadyProcessedCode) {
 					if internalResponse.ProcessorProvider == entities.Fallback {
 						internalResponse.ProcessorProvider = entities.Default
