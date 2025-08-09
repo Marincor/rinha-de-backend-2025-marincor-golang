@@ -3,7 +3,9 @@ package paymentprocessor
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
+	"time"
 
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/constants"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/helpers"
@@ -11,23 +13,69 @@ import (
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/infra/clients/request"
 )
 
-var errInvalidStatusCode = errors.New("invalid status code")
+var (
+	errInvalidStatusCode = errors.New("invalid status code")
+	errHealthFailing     = errors.New("health check failing")
+)
+
+const throttlingFactor = 5.1 * float64(time.Second)
 
 type Client struct {
 	baseURL           string
 	request           *request.HTTPRequest
 	processorProvider entities.ProcessorProvider
+	failing           bool
 }
 
 func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
-	return &Client{
+	client := &Client{
 		baseURL:           baseURL,
 		request:           request.New(),
 		processorProvider: processorProvider,
+		failing:           false,
 	}
+
+	go func() {
+		for {
+			health, err := client.health()
+			if err != nil {
+				go log.Print(
+					map[string]interface{}{
+						"message": "error getting payments health",
+						"error":   err,
+					},
+				)
+
+				client.failing = false
+
+				continue
+			}
+
+			if health.Failing || health.MinResponseTime >= int(constants.DefaultRequestTimeout) {
+				go log.Print(
+					map[string]interface{}{
+						"message": "health check failing",
+						"error":   errHealthFailing,
+					},
+				)
+
+				client.failing = true
+			} else {
+				client.failing = false
+			}
+
+			time.Sleep(time.Duration(throttlingFactor))
+		}
+	}()
+
+	return client
 }
 
 func (c *Client) ProcessPayment(paymentRequest *entities.PaymentRequest) (*entities.PaymentResponse, error) {
+	if c.failing {
+		return nil, errHealthFailing
+	}
+
 	body := map[string]any{
 		"correlationId": paymentRequest.CorrelationID,
 		"amount":        paymentRequest.Amount,
@@ -107,4 +155,25 @@ func (c *Client) PaymentsSummary(filters *entities.PaymentSummaryFilters) (*enti
 			TotalAmount:   paymentSummaryResponse.Fallback.TotalAmount,
 		},
 	}, nil
+}
+
+func (c *Client) health() (*Health, error) {
+	headers := map[string]string{}
+
+	response, err := c.request.GET(c.baseURL+"/payments/service-health", headers)
+	if err != nil {
+		return nil, fmt.Errorf("error getting payments health: %w", err)
+	}
+
+	if response.StatusCode != constants.HTTPStatusOK {
+		return nil, constants.NewErrorWrapper(errInvalidStatusCode, response.Status)
+	}
+
+	var paymentHealthResponse Health
+	err = helpers.Unmarshal(response.Body, &paymentHealthResponse)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling payment health response: %w", err)
+	}
+
+	return &paymentHealthResponse, nil
 }
