@@ -4,13 +4,13 @@ import "time"
 
 type PaymentRequest struct {
 	CorrelationID string
-	Amount        float64
 	RequestedAt   string
+	Amount        float64
 }
 
 type PaymentResponse struct {
-	Message    string `json:"message"`
-	IsFallback bool
+	Message           string `json:"message"`
+	ProcessorProvider ProcessorProvider
 }
 
 type PaymentSummaryFilters struct {

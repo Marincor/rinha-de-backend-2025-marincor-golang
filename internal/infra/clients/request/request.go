@@ -31,6 +31,7 @@ func New() *HTTPRequest {
 	}
 }
 
+//nolint:cyclop,funlen // long but necessary
 func (h *HTTPRequest) request(method, url string, headers map[string]string, rawBody *map[string]any) (*Response, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), h.timeout)
 	defer cancel()
@@ -50,6 +51,7 @@ func (h *HTTPRequest) request(method, url string, headers map[string]string, raw
 		contentType = "application/json"
 	}
 
+	//nolint:nestif // long but necessary
 	if rawBody != nil {
 		if contentType == "multipart/form-data" {
 			newBody, newContentType, err := setFormData(rawBody)
@@ -150,7 +152,7 @@ func (h *HTTPRequest) PATCH(url string, headers map[string]string, rawBody map[s
 	return h.request("PATCH", url, headers, nil)
 }
 
-// change default timeout
+// change default timeout.
 func (h *HTTPRequest) SetNewTimeout(timeout time.Duration) {
 	h.timeout = timeout
 }

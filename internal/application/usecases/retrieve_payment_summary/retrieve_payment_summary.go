@@ -1,18 +1,9 @@
 package retrievepaymentsummary
 
 import (
-	"time"
-
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/application/dtos"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/domain/contracts"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/domain/entities"
-)
-
-const (
-	maxRetries   = 3
-	initialDelay = time.Millisecond
-	multiplier   = 2
-	randomInt    = 10
 )
 
 type UseCase struct {

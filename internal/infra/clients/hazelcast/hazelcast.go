@@ -2,13 +2,14 @@ package hazelcast
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"sync"
 
-	"fmt"
-
 	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/hazelcast/hazelcast-go-client/cluster"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/domain/entities"
 )
 
@@ -18,13 +19,11 @@ type Client struct {
 }
 
 func New(mapName string) *Client {
-	val := os.Environ()
-
-	print(val)
-
 	context := context.Background()
 
 	config := hazelcast.NewConfig()
+
+	config.Cluster.ConnectionStrategy.ReconnectMode = cluster.ReconnectModeOn
 
 	if os.Getenv("HAZELCAST_URL") != "" {
 		config.Cluster.Network.SetAddresses(os.Getenv("HAZELCAST_URL"))
@@ -65,17 +64,20 @@ func (c *Client) Save(payload *entities.PaymentPayloadStorage) error {
 		RequestedAt: payload.RequestedAt,
 	}
 
-	if err := c.clientMap.Set(context, string(payload.ProcessorProvider), entry); err != nil {
+	key := fmt.Sprintf("%s:%s", string(payload.ProcessorProvider), payload.ID)
+
+	if err := c.clientMap.Set(context, key, entry); err != nil {
 		return fmt.Errorf("error saving entry: %w", err)
 	}
 
 	return nil
 }
 
-// Retrieve recupera e calcula o sumário de pagamentos baseado nos filtros
-func (c *Client) Retrieve(payloadFilters *entities.PaymentSummaryFilters) (*entities.PaymentResultStorage, error) {
+// TODO: Buscar POR FROM TO.
+func (c *Client) Retrieve(_ *entities.PaymentSummaryFilters) (*entities.PaymentResultStorage, error) {
 	context := context.Background()
 
+	//nolint:govet
 	result := &entities.PaymentResultStorage{
 		entities.PaymentSummaryResponse{
 			Default: entities.Summary{
@@ -94,7 +96,9 @@ func (c *Client) Retrieve(payloadFilters *entities.PaymentSummaryFilters) (*enti
 		err       error
 	)
 
-	waitGroup.Add(2)
+	jobs := 2
+
+	waitGroup.Add(jobs)
 
 	go func() {
 		defer waitGroup.Done()
@@ -110,71 +114,27 @@ func (c *Client) Retrieve(payloadFilters *entities.PaymentSummaryFilters) (*enti
 
 	return result, err
 }
+
 func (c *Client) setValues(
 	context context.Context,
 	processorProvider entities.ProcessorProvider,
 	result *entities.PaymentResultStorage,
 ) error {
-	values, err := c.clientMap.GetAll(context, string(processorProvider))
+	predicate := predicate.Like("__key", string(processorProvider)+":%%")
+
+	entries, err := c.clientMap.GetEntrySetWithPredicate(context, predicate)
 	if err != nil {
-		return fmt.Errorf("error getting all entries: %w", err)
+		return fmt.Errorf("error getting entries with predicate: %w", err)
 	}
 
-	for _, value := range values {
-		if processorProvider == entities.Default {
-			result.Default.TotalRequests++
-			floatValue, ok := value.Value.(float64)
-			if ok {
-				result.Default.TotalAmount += floatValue
+	for _, entry := range entries {
+		if response, ok := entry.Value.(PaymentEntry); ok {
+			if processorProvider == entities.Default {
+				result.Default.TotalRequests++
+				result.Default.TotalAmount += response.Amount
 			} else {
-				log.Print(
-					map[string]interface{}{
-						"message": "error parsing value",
-						"value":   value.Value,
-					},
-				)
-			}
-
-			if value.Key == "amount" {
-				floatValue, ok := value.Value.(float64)
-				if ok {
-					result.Default.TotalAmount += floatValue
-				} else {
-					log.Print(
-						map[string]interface{}{
-							"message": "error parsing value",
-							"value":   value.Value,
-						},
-					)
-				}
-			}
-		} else {
-			result.Fallback.TotalRequests++
-
-			floatValue, ok := value.Value.(float64)
-			if ok {
-				result.Fallback.TotalAmount += floatValue
-			} else {
-				log.Print(
-					map[string]interface{}{
-						"message": "error parsing value",
-						"value":   value.Value,
-					},
-				)
-			}
-
-			if value.Key == "amount" {
-				floatValue, ok := value.Value.(float64)
-				if ok {
-					result.Fallback.TotalAmount += floatValue
-				} else {
-					log.Print(
-						map[string]interface{}{
-							"message": "error parsing value",
-							"value":   value.Value,
-						},
-					)
-				}
+				result.Fallback.TotalRequests++
+				result.Fallback.TotalAmount += response.Amount
 			}
 		}
 	}

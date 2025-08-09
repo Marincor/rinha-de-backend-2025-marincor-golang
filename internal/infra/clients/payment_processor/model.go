@@ -1,6 +1,6 @@
 package paymentprocessor
 
-type PaymentProcessorResponse struct {
+type Response struct {
 	Message string `json:"message"`
 }
 

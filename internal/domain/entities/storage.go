@@ -10,8 +10,8 @@ const (
 type PaymentPayloadStorage struct {
 	ID                string
 	ProcessorProvider ProcessorProvider
-	Amount            float64
 	RequestedAt       string
+	Amount            float64
 }
 
 type PaymentResultStorage struct {

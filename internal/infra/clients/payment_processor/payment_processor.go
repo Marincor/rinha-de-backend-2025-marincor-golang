@@ -11,22 +11,19 @@ import (
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/infra/clients/request"
 )
 
-var (
-	errToProcessPayment     = errors.New("error processing payment")
-	errToGetPaymentsSummary = errors.New("error getting payments summary")
-)
+var errInvalidStatusCode = errors.New("invalid status code")
 
 type Client struct {
-	baseURL  string
-	request  *request.HTTPRequest
-	fallback bool
+	baseURL           string
+	request           *request.HTTPRequest
+	processorProvider entities.ProcessorProvider
 }
 
-func New(baseURL string, fallback bool) *Client {
+func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
 	return &Client{
-		baseURL:  baseURL,
-		request:  request.New(),
-		fallback: fallback,
+		baseURL:           baseURL,
+		request:           request.New(),
+		processorProvider: processorProvider,
 	}
 }
 
@@ -41,29 +38,32 @@ func (c *Client) ProcessPayment(paymentRequest *entities.PaymentRequest) (*entit
 
 	response, err := c.request.POST(c.baseURL+"/payments", headers, body)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errToProcessPayment, err)
+		return nil, fmt.Errorf("error processing payment: %w", err)
 	}
 
 	if response.StatusCode != constants.HTTPStatusOK {
-		return nil, fmt.Errorf("%w: %s", errToProcessPayment, response.Status)
+		return &entities.PaymentResponse{
+			Message:           "error invalid status",
+			ProcessorProvider: c.processorProvider,
+		}, fmt.Errorf("%w: %s", constants.ErrInvalidStatusCode, response.Status)
 	}
 
-	var paymentResponse PaymentProcessorResponse
+	var paymentResponse Response
 	err = helpers.Unmarshal(response.Body, &paymentResponse)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errToProcessPayment, err)
+		return nil, fmt.Errorf("error unmarshalling payment response: %w", err)
 	}
 
 	return &entities.PaymentResponse{
-		Message:    paymentResponse.Message,
-		IsFallback: c.fallback,
+		Message:           paymentResponse.Message,
+		ProcessorProvider: c.processorProvider,
 	}, nil
 }
 
 func (c *Client) PaymentsSummary(filters *entities.PaymentSummaryFilters) (*entities.PaymentSummaryResponse, error) {
 	endpointURL, err := url.Parse(c.baseURL + "/admin/payments-summary")
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errToGetPaymentsSummary, err)
+		return nil, fmt.Errorf("parsing endpoint url: %w", err)
 	}
 
 	if filters != nil {
@@ -82,21 +82,19 @@ func (c *Client) PaymentsSummary(filters *entities.PaymentSummaryFilters) (*enti
 
 	headers := map[string]string{}
 
-	print(">>>>> ", endpointURL.String())
-
 	response, err := c.request.GET(endpointURL.String(), headers)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errToGetPaymentsSummary, err)
+		return nil, fmt.Errorf("error getting payments summary: %w", err)
 	}
 
 	if response.StatusCode != constants.HTTPStatusOK {
-		return nil, fmt.Errorf("%w: %s", errToGetPaymentsSummary, response.Status)
+		return nil, constants.NewErrorWrapper(errInvalidStatusCode, response.Status)
 	}
 
 	var paymentSummaryResponse PaymentSummaryResponse
 	err = helpers.Unmarshal(response.Body, &paymentSummaryResponse)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errToGetPaymentsSummary, err)
+		return nil, fmt.Errorf("error unmarshalling payment summary response: %w", err)
 	}
 
 	return &entities.PaymentSummaryResponse{

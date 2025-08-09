@@ -21,8 +21,8 @@ func makeHealthController() *healthcontroller.Controller {
 }
 
 func makePaymentController(config *config.Config) *paymentcontroller.Controller {
-	defaultPaymentProcessor := paymentprocessor.New(config.PaymentProcessorDefault, false)
-	secondaryPaymentProcessor := paymentprocessor.New(config.PaymentProcessorFallback, true)
+	defaultPaymentProcessor := paymentprocessor.New(config.PaymentProcessorDefault, entities.Default)
+	secondaryPaymentProcessor := paymentprocessor.New(config.PaymentProcessorFallback, entities.Fallback)
 
 	paymentCircuitBreaker := circuitbreaker.New[*entities.PaymentResponse](
 		constants.MaxAttemptsBeforeOpen, constants.RecoveryTimeout,
