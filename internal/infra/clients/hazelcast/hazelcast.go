@@ -8,10 +8,12 @@ import (
 	"math"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/cluster"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"github.com/marincor/rinha-de-backend-2025-marincor-golang/constants"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/domain/entities"
 )
 
@@ -78,8 +80,7 @@ func (c *Client) Save(payload *entities.PaymentPayloadStorage) error {
 	return nil
 }
 
-// TODO: Buscar POR FROM TO.
-func (c *Client) Retrieve(_ *entities.PaymentSummaryFilters) (*entities.PaymentResultStorage, error) {
+func (c *Client) Retrieve(filters *entities.PaymentSummaryFilters) (*entities.PaymentResultStorage, error) {
 	context := context.Background()
 
 	//nolint:govet
@@ -107,12 +108,12 @@ func (c *Client) Retrieve(_ *entities.PaymentSummaryFilters) (*entities.PaymentR
 
 	go func() {
 		defer waitGroup.Done()
-		err = c.setValues(context, entities.Default, result)
+		err = c.setValues(context, entities.Default, result, filters)
 	}()
 
 	go func() {
 		defer waitGroup.Done()
-		err = c.setValues(context, entities.Fallback, result)
+		err = c.setValues(context, entities.Fallback, result, filters)
 	}()
 
 	waitGroup.Wait()
@@ -120,10 +121,12 @@ func (c *Client) Retrieve(_ *entities.PaymentSummaryFilters) (*entities.PaymentR
 	return result, err
 }
 
+//nolint:cyclop,funlen // long but necessary
 func (c *Client) setValues(
 	context context.Context,
 	processorProvider entities.ProcessorProvider,
 	result *entities.PaymentResultStorage,
+	filters *entities.PaymentSummaryFilters,
 ) error {
 	predicate := predicate.Like("__key", string(processorProvider)+":%%")
 
@@ -133,11 +136,43 @@ func (c *Client) setValues(
 	}
 
 	for _, entry := range entries {
+		//nolint:nestif // long but necessary
 		if response, ok := entry.Value.(PaymentEntry); ok {
+			requestedAt, err := time.Parse(constants.DefaultTimeFormat, response.RequestedAt)
+			if err != nil {
+				continue
+			}
+
+			filterEnabled := filters != nil && filters.From != nil && filters.To != nil
+
+			inDateRange := filterEnabled && !requestedAt.Before(*filters.From) && !requestedAt.After(*filters.To)
+
 			if processorProvider == entities.Default {
+				if inDateRange {
+					result.Default.TotalRequests++
+					result.Default.TotalAmount += response.Amount
+
+					continue
+				}
+
+				if filterEnabled {
+					continue
+				}
+
 				result.Default.TotalRequests++
 				result.Default.TotalAmount += response.Amount
 			} else {
+				if inDateRange {
+					result.Fallback.TotalRequests++
+					result.Fallback.TotalAmount += response.Amount
+
+					continue
+				}
+
+				if filterEnabled {
+					continue
+				}
+
 				result.Fallback.TotalRequests++
 				result.Fallback.TotalAmount += response.Amount
 			}
