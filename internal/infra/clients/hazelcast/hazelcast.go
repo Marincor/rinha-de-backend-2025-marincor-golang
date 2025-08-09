@@ -2,8 +2,10 @@ package hazelcast
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"sync"
 
@@ -19,6 +21,9 @@ type Client struct {
 }
 
 func New(mapName string) *Client {
+	gob.Register(PaymentEntry{})
+	gob.Register([]PaymentEntry{})
+
 	context := context.Background()
 
 	config := hazelcast.NewConfig()
@@ -138,6 +143,12 @@ func (c *Client) setValues(
 			}
 		}
 	}
+
+	roundNumber := 100
+	roundFloat := float64(roundNumber)
+
+	result.Default.TotalAmount = math.Round(result.Default.TotalAmount*roundFloat) / roundFloat
+	result.Fallback.TotalAmount = math.Round(result.Fallback.TotalAmount*roundFloat) / roundFloat
 
 	return nil
 }
