@@ -37,6 +37,13 @@ func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
 
 	go func() {
 		init := false
+
+		healthRequestClient := request.New()
+
+		healthTimeout := 30
+
+		healthRequestClient.SetNewTimeout(time.Duration(healthTimeout) * time.Second)
+
 		for {
 			if init {
 				time.Sleep(time.Duration(throttlingFactor))
@@ -44,7 +51,7 @@ func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
 
 			init = true
 
-			health, err := client.health()
+			health, err := client.health(healthRequestClient)
 			if err != nil {
 				go log.Print(
 					map[string]interface{}{
@@ -162,10 +169,10 @@ func (c *Client) PaymentsSummary(filters *entities.PaymentSummaryFilters) (*enti
 	}, nil
 }
 
-func (c *Client) health() (*Health, error) {
+func (c *Client) health(healthRequestClient *request.HTTPRequest) (*Health, error) {
 	headers := map[string]string{}
 
-	response, err := c.request.GET(c.baseURL+"/payments/service-health", headers)
+	response, err := healthRequestClient.GET(c.baseURL+"/payments/service-health", headers)
 	if err != nil {
 		return nil, fmt.Errorf("error getting payments health: %w", err)
 	}
