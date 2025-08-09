@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/constants"
@@ -18,6 +19,16 @@ const (
 	initialDelay = time.Millisecond
 	multiplier   = 2
 	randomInt    = 10
+)
+
+var (
+	paymentRequestPool = sync.Pool{
+		New: func() interface{} {
+			return &entities.PaymentRequest{}
+		},
+	}
+
+	timeStringCache = sync.Map{}
 )
 
 type UseCase struct {
@@ -43,10 +54,17 @@ func NewUseCase(
 
 //nolint:funlen // long but necessary
 func (usecase *UseCase) Execute(paymentRequest *dtos.PaymentPayload) (*entities.PaymentResponse, error) {
-	payload := &entities.PaymentRequest{
+	payload, ok := paymentRequestPool.Get().(*entities.PaymentRequest)
+	if !ok {
+		return nil, constants.ErrGettingPaymentRequestFromPool
+	}
+
+	defer paymentRequestPool.Put(payload)
+
+	*payload = entities.PaymentRequest{
 		CorrelationID: paymentRequest.CorrelationID.String(),
 		Amount:        paymentRequest.Amount,
-		RequestedAt:   time.Now().UTC().Format(constants.DefaultTimeFormat),
+		RequestedAt:   usecase.getTimeString(),
 	}
 
 	response, err := helpers.ExponentialBackoffRetry(
@@ -116,4 +134,41 @@ func (usecase *UseCase) processPayment(payload *entities.PaymentRequest) (*entit
 	}
 
 	return usecase.paymentCircuitBreaker.Execute(primaryPayment, fallback)
+}
+
+func (usecase *UseCase) getTimeString() string {
+	now := time.Now().UTC()
+
+	// Using for second in repeated requests
+	key := now.Unix()
+	if cached, ok := timeStringCache.Load(key); ok {
+		value, cachedOk := cached.(string)
+		if cachedOk {
+			return value
+		}
+
+		return now.Format(constants.DefaultTimeFormat)
+	}
+
+	formatted := now.Format(constants.DefaultTimeFormat)
+	timeStringCache.Store(key, formatted)
+
+	go usecase.cleanupTimeCache(key)
+
+	return formatted
+}
+
+func (usecase *UseCase) cleanupTimeCache(currentKey int64) {
+	timeToWait := 2
+
+	time.Sleep(time.Duration(timeToWait) * time.Second)
+
+	timeStringCache.Range(func(key, _ interface{}) bool {
+		value, ok := key.(int64)
+		if ok && value < currentKey-1 {
+			timeStringCache.Delete(key)
+		}
+
+		return true
+	})
 }

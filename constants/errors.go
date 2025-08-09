@@ -6,9 +6,10 @@ import (
 )
 
 var (
-	ErrInvalidStatusCode           = errors.New("invalid status code")
-	ErrAmountMustBeGreaterThanZero = errors.New("amount must be greater than 0")
-	ErrCorrelationIDIsRequired     = errors.New("correlationId is required")
+	ErrInvalidStatusCode             = errors.New("invalid status code")
+	ErrAmountMustBeGreaterThanZero   = errors.New("amount must be greater than 0")
+	ErrCorrelationIDIsRequired       = errors.New("correlationId is required")
+	ErrGettingPaymentRequestFromPool = errors.New("error getting payment request from pool")
 )
 
 func NewErrorWrapper(err error, message any) error {
