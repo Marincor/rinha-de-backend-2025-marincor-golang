@@ -3,8 +3,6 @@ package config
 import (
 	"log"
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -18,11 +16,6 @@ func New() *Config {
 }
 
 func setup() *Config {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	config := &Config{
 		ServerPort:               os.Getenv("SERVER_PORT"),
 		PaymentProcessorDefault:  os.Getenv("PAYMENT_PROCESSOR_DEFAULT"),

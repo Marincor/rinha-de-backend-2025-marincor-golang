@@ -1,0 +1,9 @@
+Makefile
+.env
+.env.example
+.gitignore
+README.md
+.vscode
+docker-compose.yaml
+backup-compose-yaml
+nginx.conf

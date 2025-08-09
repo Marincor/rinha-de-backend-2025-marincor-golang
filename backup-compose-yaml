@@ -29,7 +29,11 @@ x-service-templates:
 
 services:
   api01: &api
-    image: ghcr.io/marincor/rinha-backend-2025-golang:latest
+    # image: ghcr.io/4emcos/rinha-backend-2025-golang:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    hostname: api01
     environment:
       SERVER_PORT: 5000
       PAYMENT_PROCESSOR_FALLBACK: http://payment-processor-fallback:8080

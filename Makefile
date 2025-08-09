@@ -117,3 +117,10 @@ start-hazelcast:
 
 stop-hazelcast:
 	docker stop hazelcast
+
+update-docker-image:
+	docker build --no-cache -t=ghcr.io/marincor/rinha-backend-2025-golang:latest .
+
+push-docker-image:
+	set -a; source .env; set +a; docker login ghcr.io -u marincor -p $$GITHUB_TOKEN;
+	docker push ghcr.io/marincor/rinha-backend-2025-golang:latest
