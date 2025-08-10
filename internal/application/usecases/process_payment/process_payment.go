@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	maxRetries   = 2
+	maxRetries   = 5
 	initialDelay = time.Millisecond
 	multiplier   = 2
 	randomInt    = 10
@@ -90,8 +90,8 @@ func (usecase *UseCase) Execute(paymentRequest *dtos.PaymentPayload) (*entities.
 		maxRetries, initialDelay, multiplier, randomInt,
 	)
 	if err == nil {
-		go func(currentResponse *entities.PaymentResponse, currentPayload *entities.PaymentRequest) {
-			log.Print(
+		func(currentResponse *entities.PaymentResponse, currentPayload *entities.PaymentRequest) {
+			go log.Print(
 				map[string]interface{}{
 					"correlation_id": currentPayload.CorrelationID,
 					"amount":         currentPayload.Amount,
