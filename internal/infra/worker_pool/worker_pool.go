@@ -7,11 +7,9 @@ import (
 )
 
 type WorkerPool struct {
-	workers    int
-	taskChan   chan func()
-	wg         sync.WaitGroup
-	closed     bool
-	closeMutex sync.RWMutex
+	workers  int
+	taskChan chan func()
+	wg       sync.WaitGroup
 }
 
 func New(maxWorkers int) *WorkerPool {
@@ -21,10 +19,9 @@ func New(maxWorkers int) *WorkerPool {
 
 	pool := &WorkerPool{
 		workers:  maxWorkers,
-		taskChan: make(chan func(), maxWorkers*2), // buffer para reduzir blocking
+		taskChan: make(chan func(), maxWorkers*2),
 	}
 
-	// Inicia os workers imediatamente
 	for i := 0; i < maxWorkers; i++ {
 		go pool.worker()
 	}
@@ -53,13 +50,6 @@ func (p *WorkerPool) worker() {
 
 func (p *WorkerPool) Submit(task func()) {
 	if task == nil {
-		return
-	}
-
-	p.closeMutex.RLock()
-	defer p.closeMutex.RUnlock()
-
-	if p.closed {
 		return
 	}
 

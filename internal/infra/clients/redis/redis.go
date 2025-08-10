@@ -85,7 +85,7 @@ func (c *Client) Save(payload *entities.PaymentPayloadStorage) error {
 
 	key := fmt.Sprintf("%s:%s", string(payload.ProcessorProvider), payload.ID)
 
-	if err := c.client.Set(ctx, key, entryJSON, 0).Err(); err != nil {
+	if err := c.client.Set(ctx, key, entryJSON, 20*time.Minute).Err(); err != nil {
 		return fmt.Errorf("error saving entry: %w", err)
 	}
 
