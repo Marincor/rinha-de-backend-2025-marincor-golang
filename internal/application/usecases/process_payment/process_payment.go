@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	maxRetries   = 3
+	maxRetries   = 5
 	initialDelay = time.Millisecond
 	multiplier   = 2
 	randomInt    = 10

@@ -24,8 +24,6 @@ func ApplicationInit() {
 			Prefork:      false,
 		}),
 	}
-
-	// appinstance.Data.DB = postgres.Connect(appinstance.Data.Config.DBString)
 }
 
 func Setup(port string) {

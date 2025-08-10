@@ -108,14 +108,8 @@ func (c *Client) ProcessPayment(paymentRequest *entities.PaymentRequest) (*entit
 		}, fmt.Errorf("%w: %s", constants.ErrInvalidStatusCode, response.Status)
 	}
 
-	var paymentResponse Response
-	err = helpers.Unmarshal(response.Body, &paymentResponse)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling payment response: %w", err)
-	}
-
 	return &entities.PaymentResponse{
-		Message:           paymentResponse.Message,
+		Message:           "success",
 		ProcessorProvider: c.processorProvider,
 	}, nil
 }

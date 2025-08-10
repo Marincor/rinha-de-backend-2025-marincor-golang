@@ -4,6 +4,6 @@ import "time"
 
 const (
 	DefaultRequestTimeout = 100 * time.Millisecond
-	MaxAttemptsBeforeOpen = 3
+	MaxAttemptsBeforeOpen = 2
 	RecoveryTimeout       = 10 * time.Second
 )

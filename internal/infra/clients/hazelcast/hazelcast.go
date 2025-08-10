@@ -135,6 +135,16 @@ func (c *Client) setValues(
 		return fmt.Errorf("error getting entries with predicate: %w", err)
 	}
 
+	filterEnabled := filters != nil && filters.From != nil && filters.To != nil
+
+	if filterEnabled {
+		utcFrom := filters.From.UTC()
+		utcTo := filters.To.UTC()
+
+		filters.From = &utcFrom
+		filters.To = &utcTo
+	}
+
 	for _, entry := range entries {
 		//nolint:nestif // long but necessary
 		if response, ok := entry.Value.(PaymentEntry); ok {
@@ -142,8 +152,6 @@ func (c *Client) setValues(
 			if err != nil {
 				continue
 			}
-
-			filterEnabled := filters != nil && filters.From != nil && filters.To != nil
 
 			inDateRange := filterEnabled && !requestedAt.Before(*filters.From) && !requestedAt.After(*filters.To)
 

@@ -34,47 +34,35 @@ services:
       SERVER_PORT: 5000
       PAYMENT_PROCESSOR_FALLBACK: http://payment-processor-fallback:8080
       PAYMENT_PROCESSOR_DEFAULT: http://payment-processor-default:8080
-      HAZELCAST_URL: hazelcast:5701
+      REDIS_URL: redis:6379
     networks:
       - payment-processor
-      - hazelcast-network
+      - redis-network
     depends_on:
-      hazelcast:
-        condition: service_healthy
+      - redis
     deploy:
       resources:
         limits:
-          cpus: "0.40"
-          memory: "70MB"
+          cpus: "0.25"
+          memory: "50MB"
 
   api02:
     <<: *api
     hostname: api02
 
-  hazelcast:
-    image: hazelcast/hazelcast:5.5
-    hostname: hazelcast
-    container_name: hazelcast
+  redis:
+    image: redis:8.0.3-alpine
+    hostname: redis
     networks:
-      - hazelcast-network
+      - redis-network
     ports:
-      - "5701:5701"
-    environment:
-      - HZ_CLUSTERNAME=dev
-      - JAVA_OPTS=-Dhazelcast.rest.enabled=true -Dhazelcast.http.health-check.enabled=true -Xmx128m -Xms64m
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5701/hazelcast/health/ready"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: "150MB"
-        reservations:
-          memory: "100MB"
+          cpus: "0.3"
+          memory: "50MB"
 
   nginx:
     image: nginx:latest
@@ -85,7 +73,7 @@ services:
       - api02
     networks:
       - payment-processor
-      - hazelcast-network
+      - redis-network
     ports:
       - "9999:9999"
     deploy:
@@ -141,5 +129,5 @@ networks:
     driver: bridge
   payment-processor-db:
     driver: bridge
-  hazelcast-network:
+  redis-network:
     driver: bridge
