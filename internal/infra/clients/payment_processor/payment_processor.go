@@ -18,7 +18,10 @@ var (
 	errHealthFailing     = errors.New("health check failing")
 )
 
-const throttlingFactor = 5.1 * float64(time.Second)
+const (
+	throttlingFactor = 5.1 * float64(time.Second)
+	maxRequestTime   = 100 * time.Millisecond
+)
 
 type Client struct {
 	baseURL           string
@@ -35,50 +38,52 @@ func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
 		failing:           false,
 	}
 
-	go func() {
-		init := false
+	if processorProvider == entities.Default {
+		go func(currentClient *Client) {
+			init := false
 
-		healthRequestClient := request.New()
+			healthRequestClient := request.New()
 
-		healthTimeout := 30
+			healthTimeout := 30
 
-		healthRequestClient.SetNewTimeout(time.Duration(healthTimeout) * time.Second)
+			healthRequestClient.SetNewTimeout(time.Duration(healthTimeout) * time.Second)
 
-		for {
-			if init {
-				time.Sleep(time.Duration(throttlingFactor))
+			for {
+				if init {
+					time.Sleep(time.Duration(throttlingFactor))
+				}
+
+				init = true
+
+				health, err := currentClient.health(healthRequestClient)
+				if err != nil {
+					go log.Print(
+						map[string]interface{}{
+							"message": "error getting payments health",
+							"error":   err,
+						},
+					)
+
+					currentClient.failing = false
+
+					continue
+				}
+
+				if health.Failing || health.MinResponseTime >= int(maxRequestTime) {
+					go log.Print(
+						map[string]interface{}{
+							"message": "health check failing",
+							"error":   errHealthFailing,
+						},
+					)
+
+					currentClient.failing = true
+				} else {
+					currentClient.failing = false
+				}
 			}
-
-			init = true
-
-			health, err := client.health(healthRequestClient)
-			if err != nil {
-				go log.Print(
-					map[string]interface{}{
-						"message": "error getting payments health",
-						"error":   err,
-					},
-				)
-
-				client.failing = false
-
-				continue
-			}
-
-			if health.Failing || health.MinResponseTime >= int(constants.DefaultRequestTimeout) {
-				go log.Print(
-					map[string]interface{}{
-						"message": "health check failing",
-						"error":   errHealthFailing,
-					},
-				)
-
-				client.failing = true
-			} else {
-				client.failing = false
-			}
-		}
-	}()
+		}(client)
+	}
 
 	return client
 }

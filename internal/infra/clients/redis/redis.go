@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -111,7 +110,6 @@ func (c *Client) Retrieve(filters *entities.PaymentSummaryFilters) (*entities.Pa
 
 	var (
 		waitGroup sync.WaitGroup
-		mutex     sync.Mutex
 		err       error
 	)
 
@@ -120,14 +118,14 @@ func (c *Client) Retrieve(filters *entities.PaymentSummaryFilters) (*entities.Pa
 
 	go func() {
 		defer waitGroup.Done()
-		if processErr := c.setValues(ctx, entities.Default, result, filters, &mutex); processErr != nil {
+		if processErr := c.setValues(ctx, entities.Default, result, filters); processErr != nil {
 			err = processErr
 		}
 	}()
 
 	go func() {
 		defer waitGroup.Done()
-		if processErr := c.setValues(ctx, entities.Fallback, result, filters, &mutex); processErr != nil {
+		if processErr := c.setValues(ctx, entities.Fallback, result, filters); processErr != nil {
 			err = processErr
 		}
 	}()
@@ -137,12 +135,12 @@ func (c *Client) Retrieve(filters *entities.PaymentSummaryFilters) (*entities.Pa
 	return result, err
 }
 
+//nolint:cyclop,funlen // long but necessary
 func (c *Client) setValues(
 	ctx context.Context,
 	processorProvider entities.ProcessorProvider,
 	result *entities.PaymentResultStorage,
 	filters *entities.PaymentSummaryFilters,
-	mutex *sync.Mutex,
 ) error {
 	pattern := string(processorProvider) + ":*"
 
@@ -185,7 +183,7 @@ func (c *Client) setValues(
 		}
 
 		var entry PaymentEntry
-		if err := json.Unmarshal([]byte(entryJSON), &entry); err != nil {
+		if err := helpers.Unmarshal([]byte(entryJSON), &entry); err != nil {
 			continue
 		}
 
@@ -207,9 +205,6 @@ func (c *Client) setValues(
 	roundNumber := 100
 	roundFloat := float64(roundNumber)
 	totalAmount = math.Round(totalAmount*roundFloat) / roundFloat
-
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	if processorProvider == entities.Default {
 		result.Default.TotalRequests += totalRequests
