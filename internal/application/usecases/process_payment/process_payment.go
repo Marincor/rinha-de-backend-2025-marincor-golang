@@ -1,24 +1,14 @@
 package processpayment
 
 import (
-	"errors"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/constants"
-	"github.com/marincor/rinha-de-backend-2025-marincor-golang/helpers"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/application/dtos"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/domain/contracts"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/domain/entities"
-)
-
-const (
-	maxRetries   = 5
-	initialDelay = time.Millisecond
-	multiplier   = 2
-	randomInt    = 10
 )
 
 var (
@@ -67,47 +57,16 @@ func (usecase *UseCase) Execute(paymentRequest *dtos.PaymentPayload) (*entities.
 		RequestedAt:   usecase.getTimeString(),
 	}
 
-	response, err := helpers.ExponentialBackoffRetry(
-		func() (*entities.PaymentResponse, error) {
-			internalResponse, err := usecase.processPayment(payload)
-			if err != nil {
-				alreadyProcessedCode := "422"
-				if errors.Is(err, constants.ErrInvalidStatusCode) && strings.Contains(err.Error(), alreadyProcessedCode) {
-					if internalResponse.ProcessorProvider == entities.Fallback {
-						internalResponse.ProcessorProvider = entities.Default
-					} else {
-						internalResponse.ProcessorProvider = entities.Fallback
-					}
-
-					return internalResponse, nil
-				}
-
-				return internalResponse, err
-			}
-
-			return internalResponse, err
-		},
-		maxRetries, initialDelay, multiplier, randomInt,
-	)
+	response, err := usecase.processPayment(payload)
 	if err == nil {
 		func(currentResponse *entities.PaymentResponse, currentPayload *entities.PaymentRequest) {
-			go log.Print(
-				map[string]interface{}{
-					"correlation_id": currentPayload.CorrelationID,
-					"amount":         currentPayload.Amount,
-					"requested_at":   currentPayload.RequestedAt,
-					"processor":      currentResponse.ProcessorProvider,
-					"action":         "saving",
-				},
-			)
-
 			if err := usecase.paymentStorage.Save(&entities.PaymentPayloadStorage{
 				ID:                currentPayload.CorrelationID,
 				Amount:            currentPayload.Amount,
 				RequestedAt:       currentPayload.RequestedAt,
 				ProcessorProvider: currentResponse.ProcessorProvider,
 			}); err != nil {
-				log.Print(
+				go log.Print(
 					map[string]interface{}{
 						"correlation_id": currentPayload.CorrelationID,
 						"amount":         currentPayload.Amount,

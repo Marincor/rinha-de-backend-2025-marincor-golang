@@ -2,6 +2,7 @@ package paymentcontroller
 
 import (
 	"log"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/constants"
@@ -36,7 +37,7 @@ func NewController(
 func (c *Controller) ProcessPayment(ctx *fiber.Ctx) error {
 	var paymentRequest dtos.PaymentPayload
 
-	if err := ctx.BodyParser(&paymentRequest); err != nil {
+	if err := helpers.Unmarshal(ctx.Body(), &paymentRequest); err != nil {
 		return helpers.CreateResponse(ctx, &helpers.ErrorResponse{
 			Message:     "error parsing body",
 			Description: err.Error(),
@@ -52,17 +53,26 @@ func (c *Controller) ProcessPayment(ctx *fiber.Ctx) error {
 		}, constants.HTTPStatusBadRequest)
 	}
 
-	c.workerpool.Submit(func() {
+	start := time.Now()
+
+	go c.workerpool.Submit(func() {
 		_, err := c.processPaymentUsecase.Execute(&paymentRequest)
 		if err != nil {
 			go log.Print(
-				map[string]interface{}{
+				map[string]any{
 					"message": "error processing payment",
 					"error":   err,
 				},
 			)
 		}
 	})
+
+	end := time.Now()
+	passed := end.Sub(start)
+
+	if passed > 5*time.Second {
+		panic("payment took too long")
+	}
 
 	return helpers.CreateResponse(ctx, nil, constants.HTTPStatusNoContent)
 }

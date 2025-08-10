@@ -21,6 +21,11 @@ var (
 const (
 	throttlingFactor = 5.1 * float64(time.Second)
 	maxRequestTime   = 100 * time.Millisecond
+
+	maxRetries   = 5
+	initialDelay = time.Millisecond
+	multiplier   = 2
+	randomInt    = 10
 )
 
 type Client struct {
@@ -101,7 +106,18 @@ func (c *Client) ProcessPayment(paymentRequest *entities.PaymentRequest) (*entit
 
 	headers := map[string]string{}
 
-	response, err := c.request.POST(c.baseURL+"/payments", headers, body)
+	response, err := helpers.ExponentialBackoffRetry(func() (*request.Response, error) {
+		response, err := c.request.POST(c.baseURL+"/payments", headers, body)
+		if err != nil {
+			return response, fmt.Errorf("error processing payment: %w", err)
+		}
+
+		if response.StatusCode != constants.HTTPStatusOK {
+			return response, constants.NewErrorWrapper(errInvalidStatusCode, fmt.Sprintf("Error to process payment: %s", response.Status))
+		}
+
+		return response, nil
+	}, maxRetries, initialDelay, multiplier, randomInt)
 	if err != nil {
 		return nil, fmt.Errorf("error processing payment: %w", err)
 	}
@@ -110,7 +126,7 @@ func (c *Client) ProcessPayment(paymentRequest *entities.PaymentRequest) (*entit
 		return &entities.PaymentResponse{
 			Message:           "error invalid status",
 			ProcessorProvider: c.processorProvider,
-		}, fmt.Errorf("%w: %s", constants.ErrInvalidStatusCode, response.Status)
+		}, fmt.Errorf("error to process payment: %w: %s", constants.ErrInvalidStatusCode, response.Status)
 	}
 
 	return &entities.PaymentResponse{
@@ -147,7 +163,7 @@ func (c *Client) PaymentsSummary(filters *entities.PaymentSummaryFilters) (*enti
 	}
 
 	if response.StatusCode != constants.HTTPStatusOK {
-		return nil, constants.NewErrorWrapper(errInvalidStatusCode, response.Status)
+		return nil, constants.NewErrorWrapper(errInvalidStatusCode, fmt.Sprintf("Error to get summary: %s", response.Status))
 	}
 
 	var paymentSummaryResponse PaymentSummaryResponse

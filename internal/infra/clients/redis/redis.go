@@ -173,8 +173,10 @@ func (c *Client) setValues(
 		utcTo = filters.To.UTC()
 	}
 
-	var totalRequests int
-	var totalAmount float64
+	var (
+		totalRequests int
+		totalAmount   float64
+	)
 
 	for _, cmd := range cmds {
 		entryJSON, err := cmd.Result()

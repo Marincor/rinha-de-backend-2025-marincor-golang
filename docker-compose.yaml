@@ -43,8 +43,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.25"
-          memory: "50MB"
+          cpus: "0.50"
+          memory: "135MB"
 
   api02:
     <<: *api
@@ -80,7 +80,7 @@ services:
       resources:
         limits:
           cpus: "0.2"
-          memory: "15MB"
+          memory: "30MB"
 
   payment-processor-1:
     <<: *payment-processor

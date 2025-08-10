@@ -69,7 +69,7 @@ func (cb *CircuitBreaker[T]) Execute(
 func (cb *CircuitBreaker[T]) handleFailure() {
 	currentFailures := cb.failureCount.Add(1)
 	if currentFailures >= cb.failureThreshold || cb.state.Load() == HalfOpen {
-		log.Printf("Circuit breaker %s failure count reached %d and circuit is now open", cb.typeName, cb.failureCount.Load())
+		go log.Printf("Circuit breaker %s failure count reached %d and circuit is now open", cb.typeName, cb.failureCount.Load())
 
 		cb.state.Store(Open)
 		cb.lastFailureTime.Store(time.Now())
