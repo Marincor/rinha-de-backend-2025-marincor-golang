@@ -6,8 +6,8 @@
 
 - [Nginx](https://www.nginx.com/)
     > Load Balancer
-- [Postgres](https://www.postgresql.org/)
-    > Banco de dados
+- [Redis]([https://www.postgresql.org/](https://redis.io/))
+    > Storage
 - API
     - [Golang](https://go.dev/)
         > Linguagem   
