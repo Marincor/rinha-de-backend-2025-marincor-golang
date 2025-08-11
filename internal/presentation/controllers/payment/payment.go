@@ -2,7 +2,6 @@ package paymentcontroller
 
 import (
 	"log"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/constants"
@@ -53,8 +52,6 @@ func (c *Controller) ProcessPayment(ctx *fiber.Ctx) error {
 		}, constants.HTTPStatusBadRequest)
 	}
 
-	start := time.Now()
-
 	go c.workerpool.Submit(func() {
 		_, err := c.processPaymentUsecase.Execute(&paymentRequest)
 		if err != nil {
@@ -66,13 +63,6 @@ func (c *Controller) ProcessPayment(ctx *fiber.Ctx) error {
 			)
 		}
 	})
-
-	end := time.Now()
-	passed := end.Sub(start)
-
-	if passed > 5*time.Second {
-		panic("payment took too long")
-	}
 
 	return helpers.CreateResponse(ctx, nil, constants.HTTPStatusNoContent)
 }

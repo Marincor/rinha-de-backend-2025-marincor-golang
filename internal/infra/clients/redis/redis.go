@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,8 @@ import (
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/helpers"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/domain/entities"
 )
+
+var errGettingBufferFromPool = errors.New("error getting buffer from pool")
 
 type Client struct {
 	client *redis.Client
@@ -44,9 +47,9 @@ func New() *Client {
 		MaxRetries:   3,
 
 		DialTimeout:  5 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-		PoolTimeout:  4 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		PoolTimeout:  10 * time.Second,
 
 		MaxConnAge:  10 * time.Minute,
 		IdleTimeout: 5 * time.Minute,
@@ -69,8 +72,23 @@ func New() *Client {
 	}
 }
 
+var jsonBufferPool = sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, 0, 256))
+	},
+}
+
 func (c *Client) Save(payload *entities.PaymentPayloadStorage) error {
 	ctx := context.Background()
+
+	// avoid re-allocating the buffer
+	buf, ok := jsonBufferPool.Get().(*bytes.Buffer)
+	if !ok {
+		return errGettingBufferFromPool
+	}
+
+	buf.Reset()
+	defer jsonBufferPool.Put(buf)
 
 	entry := PaymentEntry{
 		ID:          payload.ID,
@@ -78,14 +96,14 @@ func (c *Client) Save(payload *entities.PaymentPayloadStorage) error {
 		RequestedAt: payload.RequestedAt,
 	}
 
-	entryJSON, err := helpers.Marshal(entry)
-	if err != nil {
-		return fmt.Errorf("error marshaling entry: %w", err)
+	encoder := helpers.NewEncoder(buf)
+	if err := encoder.Encode(entry); err != nil {
+		return fmt.Errorf("error encoding entry: %w", err)
 	}
 
 	key := fmt.Sprintf("%s:%s", string(payload.ProcessorProvider), payload.ID)
 
-	if err := c.client.Set(ctx, key, entryJSON, 20*time.Minute).Err(); err != nil {
+	if err := c.client.Set(ctx, key, buf.Bytes(), 20*time.Minute).Err(); err != nil {
 		return fmt.Errorf("error saving entry: %w", err)
 	}
 

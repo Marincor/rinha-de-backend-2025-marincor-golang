@@ -20,12 +20,12 @@ var (
 
 const (
 	throttlingFactor = 5.1 * float64(time.Second)
-	maxRequestTime   = 100 * time.Millisecond
+	maxRequestTime   = 150 * time.Millisecond
 
-	maxRetries   = 5
+	maxRetries   = 10
 	initialDelay = time.Millisecond
-	multiplier   = 2
-	randomInt    = 10
+	multiplier   = 3
+	randomInt    = 4
 )
 
 type Client struct {
@@ -74,11 +74,13 @@ func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
 					continue
 				}
 
-				if health.Failing || health.MinResponseTime >= int(maxRequestTime) {
+				if health.Failing {
 					go log.Print(
 						map[string]interface{}{
-							"message": "health check failing",
-							"error":   errHealthFailing,
+							"message":         "health check failing",
+							"error":           errHealthFailing,
+							"failing":         health.Failing,
+							"minResponseTime": health.MinResponseTime,
 						},
 					)
 

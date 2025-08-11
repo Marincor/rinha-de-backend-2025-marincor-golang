@@ -2,8 +2,6 @@ package helpers
 
 import (
 	"crypto/rand"
-	"fmt"
-	"log"
 	"time"
 )
 
@@ -29,13 +27,6 @@ func ExponentialBackoffRetry[T any](callback CallbackFunc[T], maxRetries int, in
 		jitter := generateJitter(randomInt)
 
 		totalDelay := delay + jitter
-
-		go log.Print(
-			map[string]interface{}{
-				"message": fmt.Sprintf("Attempt %d failed. Retrying in %s...", attempt+1, totalDelay),
-				"error":   err,
-			},
-		)
 
 		time.Sleep(totalDelay)
 

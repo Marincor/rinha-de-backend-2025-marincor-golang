@@ -1,7 +1,6 @@
 package circuitbreaker
 
 import (
-	"log"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -48,7 +47,7 @@ func (cb *CircuitBreaker[T]) Execute(
 	if cb.state.Load() == Open {
 		lastFailureTime, ok := cb.lastFailureTime.Load().(time.Time)
 		if ok && time.Since(lastFailureTime) > cb.recoveryTimeout {
-			cb.state.Store(HalfOpen)
+			cb.state.CompareAndSwap(Open, HalfOpen)
 		} else {
 			return fallback()
 		}
@@ -68,10 +67,10 @@ func (cb *CircuitBreaker[T]) Execute(
 
 func (cb *CircuitBreaker[T]) handleFailure() {
 	currentFailures := cb.failureCount.Add(1)
-	if currentFailures >= cb.failureThreshold || cb.state.Load() == HalfOpen {
-		go log.Printf("Circuit breaker %s failure count reached %d and circuit is now open", cb.typeName, cb.failureCount.Load())
+	currentState := cb.state.Load()
 
-		cb.state.Store(Open)
+	if currentFailures >= cb.failureThreshold || currentState == HalfOpen {
+		cb.state.CompareAndSwap(currentState, Open)
 		cb.lastFailureTime.Store(time.Now())
 	}
 }
@@ -86,6 +85,9 @@ func (cb *CircuitBreaker[T]) GetCountFailure() int32 {
 
 func (cb *CircuitBreaker[T]) reset() {
 	cb.failureCount.Store(0)
-	cb.state.Store(Closed)
+	currentState := cb.state.Load()
+
+	cb.state.CompareAndSwap(currentState, Closed)
+
 	cb.lastFailureTime.Store(time.Time{})
 }

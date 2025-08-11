@@ -10,4 +10,5 @@ var (
 	Marshal    = json.Marshal
 	Unmarshal  = json.Unmarshal
 	NewDecoder = json.ConfigDefault.NewDecoder
+	NewEncoder = json.ConfigDefault.NewEncoder
 )
