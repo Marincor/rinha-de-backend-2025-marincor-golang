@@ -3,8 +3,8 @@ package paymentprocessor
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/constants"
@@ -15,14 +15,15 @@ import (
 
 var (
 	errInvalidStatusCode = errors.New("invalid status code")
+	errTooManyRequests   = errors.New("too many requests")
 	errHealthFailing     = errors.New("health check failing")
 )
 
 const (
-	throttlingFactor = 5.1 * float64(time.Second)
-	maxRequestTime   = 150 * time.Millisecond
+	throttlingFactor   = 5.1 * float64(time.Second)
+	maxRequestTimeInMs = 50
 
-	maxRetries   = 10
+	maxRetries   = 5
 	initialDelay = time.Millisecond
 	multiplier   = 3
 	randomInt    = 4
@@ -45,7 +46,7 @@ func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
 
 	if processorProvider == entities.Default {
 		go func(currentClient *Client) {
-			init := false
+			init := true
 
 			healthRequestClient := request.New()
 
@@ -53,40 +54,26 @@ func New(baseURL string, processorProvider entities.ProcessorProvider) *Client {
 
 			healthRequestClient.SetNewTimeout(time.Duration(healthTimeout) * time.Second)
 
+			fallbackURL := os.Getenv("PAYMENT_PROCESSOR_FALLBACK")
+
 			for {
-				if init {
+				if !init {
 					time.Sleep(time.Duration(throttlingFactor))
 				}
 
-				init = true
+				fallbackHealth, _ := currentClient.health(fallbackURL, healthRequestClient)
 
-				health, err := currentClient.health(healthRequestClient)
+				health, err := currentClient.health(currentClient.baseURL, healthRequestClient)
 				if err != nil {
-					go log.Print(
-						map[string]interface{}{
-							"message": "error getting payments health",
-							"error":   err,
-						},
-					)
-
-					currentClient.failing = false
+					currentClient.failing = !errors.Is(err, errTooManyRequests)
 
 					continue
 				}
 
-				if health.Failing {
-					go log.Print(
-						map[string]interface{}{
-							"message":         "health check failing",
-							"error":           errHealthFailing,
-							"failing":         health.Failing,
-							"minResponseTime": health.MinResponseTime,
-						},
-					)
+				currentClient.failing = health.Failing
 
+				if health.MinResponseTime >= maxRequestTimeInMs || (fallbackHealth != nil && !fallbackHealth.Failing && health.MinResponseTime > fallbackHealth.MinResponseTime) {
 					currentClient.failing = true
-				} else {
-					currentClient.failing = false
 				}
 			}
 		}(client)
@@ -186,12 +173,16 @@ func (c *Client) PaymentsSummary(filters *entities.PaymentSummaryFilters) (*enti
 	}, nil
 }
 
-func (c *Client) health(healthRequestClient *request.HTTPRequest) (*Health, error) {
+func (c *Client) health(url string, healthRequestClient *request.HTTPRequest) (*Health, error) {
 	headers := map[string]string{}
 
-	response, err := healthRequestClient.GET(c.baseURL+"/payments/service-health", headers)
+	response, err := healthRequestClient.GET(url+"/payments/service-health", headers)
 	if err != nil {
 		return nil, fmt.Errorf("error getting payments health: %w", err)
+	}
+
+	if response.StatusCode == constants.HTTPStatusTooManyRequests {
+		return nil, errTooManyRequests
 	}
 
 	if response.StatusCode != constants.HTTPStatusOK {

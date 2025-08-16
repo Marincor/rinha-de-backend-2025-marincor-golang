@@ -18,7 +18,7 @@ func main() {
 
 	app.ApplicationInit()
 
-	MaxGoRoutinesToProcess := 1024
+	MaxGoRoutinesToProcess := 10
 
 	workerPool := workerpool.New(MaxGoRoutinesToProcess)
 
