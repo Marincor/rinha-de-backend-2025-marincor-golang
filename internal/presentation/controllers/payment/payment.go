@@ -44,14 +44,6 @@ func (c *Controller) ProcessPayment(ctx *fiber.Ctx) error {
 		}, constants.HTTPStatusUnprocessableEntity)
 	}
 
-	if err := c.validator.ValidatePaymentPayload(&paymentRequest); err != nil {
-		return helpers.CreateResponse(ctx, &helpers.ErrorResponse{
-			Message:     "error validating payload",
-			Description: err.Error(),
-			StatusCode:  constants.HTTPStatusBadRequest,
-		}, constants.HTTPStatusBadRequest)
-	}
-
 	go c.workerpool.Submit(func() {
 		_, err := c.processPaymentUsecase.Execute(&paymentRequest)
 		if err != nil {
@@ -64,7 +56,13 @@ func (c *Controller) ProcessPayment(ctx *fiber.Ctx) error {
 		}
 	})
 
-	return helpers.CreateResponse(ctx, nil, constants.HTTPStatusNoContent)
+	response := ctx.Response()
+
+	response.Header.Set("Content-Length", "0")
+
+	response.SetStatusCode(constants.HTTPStatusNoContent)
+
+	return nil
 }
 
 func (c *Controller) RetrievePaymentSummary(ctx *fiber.Ctx) error {
@@ -87,5 +85,21 @@ func (c *Controller) RetrievePaymentSummary(ctx *fiber.Ctx) error {
 		}, constants.HTTPStatusInternalServerError)
 	}
 
-	return helpers.CreateResponse(ctx, response, constants.HTTPStatusOK)
+	body, err := helpers.Marshal(response)
+	if err != nil {
+		return helpers.CreateResponse(ctx, &helpers.ErrorResponse{
+			Message:     "error marshalling response",
+			Description: err.Error(),
+			StatusCode:  constants.HTTPStatusInternalServerError,
+		}, constants.HTTPStatusInternalServerError)
+	}
+
+	ctx.Response().SetStatusCode(constants.HTTPStatusOK)
+	ctx.Response().SetBody(body)
+
+	ctx.Response().Header.Set("Content-Length", "0")
+
+	ctx.Response().Header.SetContentType(fiber.MIMEApplicationJSON)
+
+	return nil
 }

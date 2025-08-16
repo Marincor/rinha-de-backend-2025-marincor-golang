@@ -14,17 +14,27 @@ import (
 func ApplicationInit() {
 	configs := config.New()
 
+	maxConcurrency := 10_000
+
 	appinstance.Data = &appinstance.Application{
 		Config: configs,
 		Server: fiber.New(fiber.Config{
-			ServerHeader:      "Rinha-Backend-Marincor-2025",
-			ErrorHandler:      customErrorHandler,
-			JSONEncoder:       helpers.Marshal,
-			JSONDecoder:       helpers.Unmarshal,
-			DisableKeepalive:  true,
-			Prefork:           false,
-			ReduceMemoryUsage: true,
-			Concurrency:       10_000,
+			ServerHeader:              "Rinha-Backend-Marincor-2025",
+			ErrorHandler:              customErrorHandler,
+			JSONEncoder:               helpers.Marshal,
+			JSONDecoder:               helpers.Unmarshal,
+			DisableKeepalive:          false,
+			Prefork:                   false,
+			ReduceMemoryUsage:         true,
+			Concurrency:               maxConcurrency,
+			DisableDefaultDate:        true,
+			DisableDefaultContentType: true,
+			DisableHeaderNormalizing:  true,
+			DisableStartupMessage:     true,
+			StrictRouting:             false,
+			CaseSensitive:             false,
+			UnescapePath:              false,
+			CompressedFileSuffix:      ".gz",
 		}),
 	}
 }

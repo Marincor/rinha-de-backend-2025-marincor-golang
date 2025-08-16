@@ -1,8 +1,11 @@
 package main
 
 import (
+	"os"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
+	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/domain/contracts"
 	"github.com/marincor/rinha-de-backend-2025-marincor-golang/internal/infra/app/appinstance"
 )
@@ -12,6 +15,10 @@ func route(workerPool contracts.WorkerPoolManager) *fiber.App {
 	appinstance.Data.Server.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
+
+	if os.Getenv("ENVIRONMENT") == "local" {
+		appinstance.Data.Server.Use(pprof.New())
+	}
 
 	healthController := makeHealthController()
 	paymentController := makePaymentController(appinstance.Data.Config, workerPool)

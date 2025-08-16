@@ -121,6 +121,30 @@ stop-hazelcast:
 update-docker-image:
 	docker build --no-cache -t=ghcr.io/marincor/rinha-backend-2025-golang:latest .
 
+	make push-docker-image
+
 push-docker-image:
 	set -a; source .env; set +a; docker login ghcr.io -u marincor -p $$GITHUB_TOKEN;
 	docker push ghcr.io/marincor/rinha-backend-2025-golang:latest
+
+profile-cpu:
+	set -a; source .env; set +a; \
+	if command -v dot &> /dev/null; then \
+		echo "Graphviz installed"; \
+	else \
+		echo "Graphviz not found. Installing..."; \
+		sudo apt update && sudo apt install -y graphviz; \
+	fi; \
+	curl -o profile.out http://localhost:$${SERVER_PORT}/debug/pprof/profile; \
+	go tool pprof -http=:9595 profile.out
+
+profile-mem:
+	set -a; source .env; set +a; \
+	if command -v dot &> /dev/null; then \
+		echo "Graphviz installed"; \
+	else \
+		echo "Graphviz not found. Installing..."; \
+		sudo apt update && sudo apt install -y graphviz; \
+	fi; \
+	curl -o profile.out http://localhost:$${SERVER_PORT}/debug/pprof/heap; \
+	go tool pprof -http=:9595 profile.out

@@ -17,12 +17,14 @@ func New(maxWorkers int) *WorkerPool {
 		maxWorkers = runtime.NumCPU()
 	}
 
+	multiple := 2
+
 	pool := &WorkerPool{
 		workers:  maxWorkers,
-		taskChan: make(chan func(), maxWorkers*2),
+		taskChan: make(chan func(), maxWorkers*multiple),
 	}
 
-	for i := 0; i < maxWorkers; i++ {
+	for range maxWorkers {
 		go pool.worker()
 	}
 
